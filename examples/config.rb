@@ -40,14 +40,7 @@ class MyKaRules < KaRules
       app_unless(:ghostty) do
         # Example: Focus terminal app, wait, then send Ctrl+A
         # Replace with your own terminal focus script
-        m(
-          "a +control",
-          [
-            "!open -a 'Terminal'",
-            { key_code: "vk_none", hold_down_milliseconds: 100 },
-            "a +control"
-          ]
-        )
+        m("a +control", ["!open -a 'Terminal'", { key_code: "vk_none", hold_down_milliseconds: 100 }, "a +control"])
       end
     end
 

@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
-# rubocop:disable Metrics/MethodLength,Metrics/AbcSize
+require "fileutils"
 # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
 
 require "json"
 
 module KaRulesDSL # rubocop:disable Metrics/ModuleLength
   APPLE_KEYS = %w[spotlight].freeze
+  private_constant :APPLE_KEYS
 
   def m(
     from, to = nil, conditions: nil, to_if_alone: nil, to_delayed_action: nil,
@@ -50,7 +51,7 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
         result[:modifiers][:optional] ||= []
         result[:modifiers][:optional] << mod[1..]
       else
-        raise("Unknown modifier: #{mod}")
+        raise(ArgumentError, "Unknown modifier: #{mod}")
       end
     end
     result
@@ -73,7 +74,7 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
       #   result[:shell_command] = mod[1..] + args.split(mod).last
       #   break
       else
-        raise("Unknown modifier: #{mod}")
+        raise(ArgumentError, "Unknown modifier: #{mod}")
       end
     end
     result
@@ -104,7 +105,7 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
     if block_given?
       conditions(app_if(name), &)
     else
-      app = @apps[name] || raise("Unknown app: #{name}")
+      app = @apps[name] || raise(ArgumentError, "Unknown app: #{name}")
       { bundle_identifiers: wrap(app), type: "frontmost_application_if" }
     end
   end
@@ -113,7 +114,7 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
     if block_given?
       conditions(app_unless(name), &)
     else
-      app = @apps[name] || raise("Unknown app: #{name}")
+      app = @apps[name] || raise(ArgumentError, "Unknown app: #{name}")
       { bundle_identifiers: wrap(app), type: "frontmost_application_unless" }
     end
   end
@@ -170,16 +171,42 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
   end
 
   def call
+    # Generate rules (this also loads the config which may set karabiner_path)
+    rules = generate
+
+    # Now we can determine the correct file path
     file = karabiner_path || default_karabiner_path
+
+    # Backup existing file if requested (unless in dry-run mode)
+    backup_file(file) if should_backup? && !dry_run?
+
     json = JSON.parse(File.read(file), symbolize_names: true)
 
-    json[:profiles][0][:complex_modifications][:rules].replace(generate)
+    json[:profiles][0][:complex_modifications][:rules].replace(rules)
+
+    return if dry_run? # Don't write in dry-run mode
 
     File.write(file, json.to_json)
     `karabiner_cli --format-json #{file}`
   end
 
   private
+
+  def dry_run?
+    ENV["KARULES_DRY_RUN"] == "1"
+  end
+
+  def should_backup?
+    ENV["KARULES_BACKUP"] != "0"
+  end
+
+  def backup_file(file)
+    return unless File.exist?(file)
+
+    backup_path = "#{file}.backup.#{Time.now.strftime('%Y%m%d_%H%M%S')}"
+    FileUtils.cp(file, backup_path)
+    puts("Backed up existing config to: #{backup_path}") if ENV["KARULES_VERBOSE"] == "1"
+  end
 
   def default_karabiner_path
     config_home = ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config"))
@@ -191,7 +218,8 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
     when Array
       obj.map { |el| deep_sort(el) }
     when Hash
-      obj.sort_by { |k, _| k }.to_h.transform_values { |v| deep_sort(v) }
+      obj.sort_by { |k, _| k }
+         .to_h.transform_values { |v| deep_sort(v) }
     else
       obj
     end

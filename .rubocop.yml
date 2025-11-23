@@ -1,6 +1,8 @@
 AllCops:
   TargetRubyVersion: 3.3
   EnabledByDefault: true
+  Exclude:
+    - 'test/fixtures/**/*'
 
 Layout/MultilineMethodParameterLineBreaks:
   Enabled: false
@@ -8,10 +10,35 @@ Layout/MultilineMethodParameterLineBreaks:
 Lint/ConstantResolution:
   Enabled: false
 
+# Metrics - disabled globally
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Style/Copyright:
+  Enabled: false
+
 Style/DisableCopsWithinSourceCodeDirective:
   Enabled: false
 
+Style/Documentation:
+  Enabled: false
+
 Style/DocumentationMethod:
+  Enabled: false
+
+Style/InlineComment:
   Enabled: false
 
 Style/StringLiterals:

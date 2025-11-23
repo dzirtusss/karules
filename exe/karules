@@ -1,30 +1,278 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "English"
+require "fileutils"
 require "karules"
+require "optparse"
 
-# Determine config file path
-config_file = ARGV.first
+# CLI handler for karules
+class KarulesCLI
+  attr_reader :options
 
-unless config_file
-  # Use XDG_CONFIG_HOME or default to ~/.config
-  config_home = ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config"))
-  config_file = File.join(config_home, "karules", "config.rb")
+  BASIC_CONFIG_TEMPLATE = <<~RUBY
+    # frozen_string_literal: true
+
+    require "karules"
+
+    class MyKaRules < KaRules
+      def config
+        # Define your application bundle identifiers
+        apps(
+          terminal: "^com\\\\.apple\\\\.Terminal$",
+          safari: "^com\\\\.apple\\\\.Safari$"
+        )
+
+        # Simple mapping example
+        group("Caps Lock to Control") do
+          m("caps_lock -any", "left_control")
+        end
+
+        # App launcher example
+        group("Quick App Launcher") do
+          m("t +right_command", "!open -a 'Terminal'")
+          m("s +right_command", "!open -a 'Safari'")
+        end
+
+        # Modal mode example (vim-style navigation)
+        group("Tab Navigation Mode") do
+          m("tab", "right_option lazy", to_if_alone: "tab")
+          m("h +right_option", "left_arrow")
+          m("j +right_option", "down_arrow")
+          m("k +right_option", "up_arrow")
+          m("l +right_option", "right_arrow")
+        end
+
+        # Add more groups and mappings here
+      end
+    end
+
+    MyKaRules.new.call
+  RUBY
+  private_constant :BASIC_CONFIG_TEMPLATE
+
+  def initialize
+    @options = { verbose: false, dry_run: false, validate: false, backup: true }
+  end
+
+  def run(args)
+    parse_options(args)
+
+    command = args.shift || "run"
+
+    case command
+    when "init"
+      init_config
+    when "run", nil
+      run_config(args.first)
+    when "version", "--version", "-v"
+      show_version
+    when "help", "--help", "-h"
+      show_help
+    else
+      run_config(command) # Treat as config file path
+    end
+  end
+
+  private
+
+  def parse_options(args)
+    parser =
+      OptionParser.new do |opts|
+        opts.banner = "Usage: karules [COMMAND|CONFIG_FILE] [OPTIONS]"
+        opts.separator("")
+        opts.separator("Commands:")
+        opts.separator("  init           Generate a sample config file")
+        opts.separator("  run [FILE]     Load and apply config (default command)")
+        opts.separator("")
+        opts.separator("Options:")
+
+        opts.on("-v", "--version", "Show version") do
+          show_version
+          exit(0)
+        end
+
+        opts.on("-h", "--help", "Show this help") do
+          puts(opts)
+          exit(0)
+        end
+
+        opts.on("--verbose", "Show detailed output") do
+          @options[:verbose] = true
+        end
+
+        opts.on("--dry-run", "Preview changes without applying") do
+          @options[:dry_run] = true
+        end
+
+        opts.on("--validate", "--check", "Validate config syntax without applying") do
+          @options[:validate] = true
+        end
+
+        opts.on("--no-backup", "Skip backup of existing Karabiner config") do
+          @options[:backup] = false
+        end
+      end
+    parser.parse!(args)
+  end
+
+  def show_version
+    puts("karules #{Karules::VERSION}")
+  end
+
+  def show_help
+    puts(<<~HELP)
+      karules - Configure Karabiner-Elements with Ruby DSL
+
+      Usage:
+        karules [COMMAND|CONFIG_FILE] [OPTIONS]
+
+      Commands:
+        init              Generate a sample config file
+        run [FILE]        Load and apply config (default)
+
+      Options:
+        -v, --version     Show version
+        -h, --help        Show this help
+        --verbose         Show detailed output
+        --dry-run         Preview changes without applying
+        --validate        Validate config syntax only
+        --no-backup       Skip backup of existing config
+
+      Examples:
+        karules                           # Use default config
+        karules init                      # Generate sample config
+        karules my-config.rb              # Use specific config
+        karules --dry-run                 # Preview changes
+        karules --validate                # Check syntax only
+
+      Config file locations (searched in order):
+        1. Explicit path argument
+        2. $XDG_CONFIG_HOME/karules/config.rb
+        3. ~/.config/karules/config.rb
+        4. ~/.karules.rb
+        5. ./karules.rb
+    HELP
+  end
+
+  def init_config
+    config_dir = File.join(ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config")), "karules")
+    config_file = File.join(config_dir, "config.rb")
+
+    if File.exist?(config_file) # rubocop:disable Style/MissingElse
+      warn("Config file already exists: #{config_file}")
+      warn("Remove it first or edit it manually.")
+      exit(1)
+    end
+
+    FileUtils.mkdir_p(config_dir)
+
+    # Get example config from gem
+    gem_root = File.expand_path("../..", __dir__)
+    example_file = File.join(gem_root, "examples", "config.rb")
+
+    if File.exist?(example_file)
+      FileUtils.cp(example_file, config_file)
+    else
+      # Fallback: create basic config
+      File.write(config_file, BASIC_CONFIG_TEMPLATE)
+    end
+
+    puts("✓ Created config file: #{config_file}")
+    puts("")
+    puts("Edit this file to customize your keyboard mappings.")
+    puts("Then run: karules")
+  end
+
+  def run_config(explicit_path)
+    config_file = find_config_file(explicit_path)
+
+    log("Using config: #{config_file}")
+
+    if @options[:validate] # rubocop:disable Style/MissingElse
+      validate_config(config_file)
+      puts("✓ Config syntax is valid")
+      exit(0)
+    end
+
+    # Set environment variables for DSL
+    ENV["KARULES_DRY_RUN"] = "1" if @options[:dry_run]
+    ENV["KARULES_BACKUP"] = @options[:backup] ? "1" : "0"
+    ENV["KARULES_VERBOSE"] = "1" if @options[:verbose]
+
+    # Load and execute the config
+    load(config_file)
+
+    if @options[:dry_run]
+      puts("")
+      puts("✓ Dry run complete - no changes were made")
+      puts("  Run without --dry-run to apply changes")
+    else
+      config_home = ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config"))
+      karabiner_file = File.join(config_home, "karabiner", "karabiner.json")
+      puts("")
+      puts("✓ Karabiner config updated successfully")
+      puts("  Config file: #{karabiner_file}")
+    end
+  end
+
+  def find_config_file(explicit_path)
+    if explicit_path # rubocop:disable Style/MissingElse
+      return explicit_path if File.exist?(explicit_path)
+
+      warn("Config file not found: #{explicit_path}")
+      exit(1)
+    end
+
+    # Auto-detect config file
+    candidates = [
+      File.join(ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config")), "karules", "config.rb"),
+      File.expand_path("~/.config/karules/config.rb"),
+      File.expand_path("~/.karules.rb"),
+      File.expand_path("./karules.rb")
+    ]
+
+    config_file = candidates.find { |f| File.exist?(f) }
+
+    unless config_file
+      warn("No config file found. Searched:")
+      candidates.each { |f| warn("  - #{f}") }
+      warn("")
+      warn("Create a config file with: karules init")
+      warn("Or specify a path: karules /path/to/config.rb")
+      exit(1)
+    end
+
+    config_file
+  end
+
+  def validate_config(config_file)
+    log("Validating config syntax...")
+
+    # Try to load the file and check for syntax errors
+    begin
+      # Use ruby -c to check syntax
+      output = `ruby -c "#{config_file}" 2>&1`
+      exit_code = $CHILD_STATUS.exitstatus
+
+      if exit_code != 0 # rubocop:disable Style/MissingElse
+        warn("Syntax error in config file:")
+        warn(output)
+        exit(1)
+      end
+
+      log("Syntax check passed")
+    rescue StandardError => e
+      warn("Error validating config: #{e.message}")
+      exit(1)
+    end
+  end
+
+  def log(message)
+    puts(message) if @options[:verbose]
+  end
 end
 
-# Check if config file exists
-unless File.exist?(config_file)
-  warn "Config file not found: #{config_file}"
-  warn ""
-  warn "Usage: karules [CONFIG_FILE]"
-  warn ""
-  warn "Create a config file at #{config_file}"
-  warn "or specify a custom path as an argument."
-  warn ""
-  warn "See the example config at:"
-  warn "  #{File.expand_path('../../examples/config.rb', __dir__)}"
-  exit 1
-end
-
-# Load and execute the config file
-load config_file
+# Run the CLI
+cli = KarulesCLI.new
+cli.run(ARGV.dup)

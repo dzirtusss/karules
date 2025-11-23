@@ -44,7 +44,7 @@ Much better.
 
 ## Installation
 
-### Via Homebrew (soon)
+### Via Homebrew (recommended)
 
 ```bash
 brew tap dzirtusss/tap
@@ -55,15 +55,6 @@ brew install karules
 
 ```bash
 gem install karules
-```
-
-### Manual
-
-```bash
-git clone https://github.com/dzirtusss/karules.git
-cd karules
-gem build karules.gemspec
-gem install karules-0.1.0.gem
 ```
 
 ## Configuration
@@ -121,6 +112,74 @@ karules
 ```
 
 It will update your `~/.config/karabiner/karabiner.json` automatically.
+
+## CLI Commands
+
+### Generate a config file
+
+```bash
+karules init
+```
+
+Creates `~/.config/karules/config.rb` with examples. Edit this file to add your mappings.
+
+### Apply your config
+
+```bash
+karules                    # Auto-detect config file
+karules my-config.rb       # Use specific file
+```
+
+### Validate config
+
+```bash
+karules --validate         # Check syntax without applying
+```
+
+### Preview changes
+
+```bash
+karules --dry-run          # See what would change
+```
+
+### Show version
+
+```bash
+karules --version
+```
+
+### Get help
+
+```bash
+karules --help
+```
+
+### All options
+
+```
+Usage: karules [COMMAND|CONFIG_FILE] [OPTIONS]
+
+Commands:
+  init              Generate a sample config file
+  run [FILE]        Load and apply config (default)
+
+Options:
+  -v, --version     Show version
+  -h, --help        Show this help
+  --verbose         Show detailed output
+  --dry-run         Preview changes without applying
+  --validate        Validate config syntax only
+  --no-backup       Skip backup of existing config
+```
+
+### Config file auto-detection
+
+karules automatically searches for config files in this order:
+1. Explicit path argument
+2. `$XDG_CONFIG_HOME/karules/config.rb`
+3. `~/.config/karules/config.rb`
+4. `~/.karules.rb`
+5. `./karules.rb`
 
 ## Usage
 

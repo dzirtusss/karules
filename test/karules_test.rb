@@ -3,6 +3,7 @@
 require_relative "test_helper"
 
 class KaRulesTest < Minitest::Test
+  include TestSafety
   # Example config used for testing
   class TestConfig < KaRules
     def key_mode(key, mode)
@@ -157,10 +158,13 @@ class KaRulesTest < Minitest::Test
 
   def run_config_and_compare(config_class)
     Dir.mktmpdir do |tmpdir|
-      # Create minimal base karabiner structure
+      # Create minimal base karabiner structure in TEMP directory (NOT real config)
       tmp_karabiner = File.join(tmpdir, "karabiner.json")
-      base_structure = { profiles: [{ complex_modifications: { rules: [] } }] }
-      File.write(tmp_karabiner, JSON.generate(base_structure))
+
+      # SAFETY: Ensure we're NOT using the real karabiner config
+      assert_not_real_karabiner_path(tmp_karabiner)
+
+      File.write(tmp_karabiner, JSON.generate(minimal_karabiner_json))
 
       # Create instance and configure it to use temp file
       config = config_class.new
@@ -168,7 +172,7 @@ class KaRulesTest < Minitest::Test
         @karabiner_path = tmp_karabiner
       end
 
-      # Run the config
+      # Run the config (writes to temp file only)
       config.call
 
       # Read the generated output

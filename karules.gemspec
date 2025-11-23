@@ -9,7 +9,8 @@ Gem::Specification.new do |spec|
   spec.email = ["dzirtusss@gmail.com"]
 
   spec.summary = "Configure Karabiner-Elements with Ruby DSL"
-  spec.description = "A Ruby DSL for configuring Karabiner-Elements - cleaner, more maintainable keyboard customization for macOS"
+  spec.description = "A Ruby DSL for configuring Karabiner-Elements - " \
+                     "cleaner, more maintainable keyboard customization for macOS"
   spec.homepage = "https://github.com/dzirtusss/karules"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
@@ -24,6 +25,8 @@ Gem::Specification.new do |spec|
   spec.executables = ["karules"]
   spec.require_paths = ["lib"]
 
-  spec.add_development_dependency("rubocop", "~> 1.69")
+  spec.add_development_dependency("minitest", "~> 5.0") # rubocop:disable Gemspec/DevelopmentDependencies
+  spec.add_development_dependency("rake", "~> 13.0") # rubocop:disable Gemspec/DevelopmentDependencies
+  spec.add_development_dependency("rubocop", "~> 1.69") # rubocop:disable Gemspec/DevelopmentDependencies
   spec.metadata["rubygems_mfa_required"] = "true"
 end
