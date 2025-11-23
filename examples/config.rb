@@ -1,13 +1,11 @@
-#!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# rubocop:disable Metrics/MethodLength,Metrics/AbcSize,Metrics/BlockLength
+# Example Karabiner configuration
+# Copy this file to ~/.config/karules/config.rb and customize it
 
-require_relative "karules_dsl"
+require "karules"
 
-class KaRules # rubocop:disable Metrics/ClassLength
-  include KaRulesDSL
-
+class MyKaRules < KaRules
   def key_mode(key, mode)
     m(
       key,
@@ -22,10 +20,11 @@ class KaRules # rubocop:disable Metrics/ClassLength
   end
 
   def config
-    apps(
-      slack: "^com\\.tinyspeck\\.slackmacgap$",
-      ghostty: "^com\\.mitchellh\\.ghostty$"
-    )
+    # Optional: specify custom Karabiner config path
+    # Default: $XDG_CONFIG_HOME/karabiner/karabiner.json or ~/.config/karabiner/karabiner.json
+    # karabiner_path "~/custom/path/karabiner.json"
+
+    apps(slack: "^com\\.tinyspeck\\.slackmacgap$", ghostty: "^com\\.mitchellh\\.ghostty$")
 
     group("Caps Lock") do
       # m("caps_lock -any", "left_control", to_if_alone: "escape")
@@ -39,11 +38,16 @@ class KaRules # rubocop:disable Metrics/ClassLength
 
     group("Tmux") do
       app_unless(:ghostty) do
-        m("a +control", [
-            "!/bin/sh ~/bin/myterm focus",
+        # Example: Focus terminal app, wait, then send Ctrl+A
+        # Replace with your own terminal focus script
+        m(
+          "a +control",
+          [
+            "!open -a 'Terminal'",
             { key_code: "vk_none", hold_down_milliseconds: 100 },
             "a +control"
-          ])
+          ]
+        )
       end
     end
 
@@ -126,41 +130,32 @@ class KaRules # rubocop:disable Metrics/ClassLength
       m("q +command", mode_on, to_delayed_action: { to_if_canceled: mode_off, to_if_invoked: mode_off })
     end
 
+    # Example: Switch between terminal windows/tabs
+    # Replace with your own terminal switching script
     max = 9
     group("terminal 1-#{max}") do
       app_if(:ghostty) do
-        (1..max).each { |i| m("#{i} +left_command", "!/bin/sh ~/bin/myterm focus #{i}") }
+        (1..max).each { |i| m("#{i} +left_command", "#{i} +command") }
       end
 
-      (1..max).each { |i| m("#{i} +left_option", "!/bin/sh ~/bin/myterm focus #{i}") }
+      (1..max).each { |i| m("#{i} +left_option", "#{i} +command") }
     end
 
+    # Example: Application launcher shortcuts
     group("Apps") do
-      m("j +right_command", "!/bin/sh ~/bin/myterm focus")
+      m("j +right_command", "!open -a 'Terminal'")
       m("k +right_command", "!open -a 'Safari'")
-      m("l +right_command", "!open -a 'BoltAI'")
-      m("semicolon +right_command", "!open -a 'Claude'")
-
-      m("u +right_command", "!open -a 'macai'")
-      m("i +right_command", "!open -a 'Msty'")
-      m("o +right_command", "!open -g hammerspoon://raycast-ai-chat")
-      m("p +right_command", "!open -a 'Postico 2'")
+      m("semicolon +right_command", "!open -a 'Mail'")
 
       m("f +right_command", "!open -a 'Finder'")
       m("s +right_command", "!open -a 'Slack'")
       m("c +right_command", "!open -a 'Google Chrome'")
-      m("t +right_command", "t +control +command +option") # Toggl Track
-      m("m +right_command", "!open -a 'Mail'")
-      m("d +right_command", "!open -a 'Discord'")
-      m("v +right_command", "!open -a 'Viber'")
-      # m("r +right_command", "!bin/sh ~/bin/oat")
-      m("r +right_command", "!open -a 'Reminders'")
-      m("f4", ["grave_accent_and_tilde +option", "!/bin/sh ~/bin/myghosttysize"]) # Ghostty quick terminal
       m("n +right_command", "!open -a 'Notes'")
+
+      # You can also map to other key combinations
+      m("t +right_command", "t +control +command +option")
     end
   end
 end
 
-KaRules.new.call
-
-# rubocop:enable Metrics/MethodLength,Metrics/AbcSize,Metrics/BlockLength
+MyKaRules.new.call

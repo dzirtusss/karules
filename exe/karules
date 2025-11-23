@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "karules"
+
+# Determine config file path
+config_file = ARGV.first
+
+unless config_file
+  # Use XDG_CONFIG_HOME or default to ~/.config
+  config_home = ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config"))
+  config_file = File.join(config_home, "karules", "config.rb")
+end
+
+# Check if config file exists
+unless File.exist?(config_file)
+  warn "Config file not found: #{config_file}"
+  warn ""
+  warn "Usage: karules [CONFIG_FILE]"
+  warn ""
+  warn "Create a config file at #{config_file}"
+  warn "or specify a custom path as an argument."
+  warn ""
+  warn "See the example config at:"
+  warn "  #{File.expand_path('../../examples/config.rb', __dir__)}"
+  exit 1
+end
+
+# Load and execute the config file
+load config_file

@@ -1,0 +1,18 @@
+AllCops:
+  TargetRubyVersion: 3.3
+  EnabledByDefault: true
+
+Layout/MultilineMethodParameterLineBreaks:
+  Enabled: false
+
+Lint/ConstantResolution:
+  Enabled: false
+
+Style/DisableCopsWithinSourceCodeDirective:
+  Enabled: false
+
+Style/DocumentationMethod:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes

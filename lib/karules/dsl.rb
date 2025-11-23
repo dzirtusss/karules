@@ -8,8 +8,10 @@ require "json"
 module KaRulesDSL # rubocop:disable Metrics/ModuleLength
   APPLE_KEYS = %w[spotlight].freeze
 
-  def m(from, to = nil, conditions: nil, to_if_alone: nil, to_delayed_action: nil, # rubocop:disable Metrics/ParameterLists
-        to_if_held_down: nil, parameters: nil, to_after_key_up: nil)
+  def m(
+    from, to = nil, conditions: nil, to_if_alone: nil, to_delayed_action: nil,
+    to_if_held_down: nil, parameters: nil, to_after_key_up: nil
+  )
     res = {}
     conditions = @default_conditions || conditions
     parameters = @default_parameters || parameters
@@ -155,6 +157,12 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
     @result.last[:enabled] = false unless enabled
   end
 
+  def karabiner_path(path = nil)
+    return @karabiner_path if path.nil?
+
+    @karabiner_path = File.expand_path(path)
+  end
+
   def generate
     @result = []
     config
@@ -162,7 +170,7 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
   end
 
   def call
-    file = "/Users/sergey/.config/karabiner/karabiner.json"
+    file = karabiner_path || default_karabiner_path
     json = JSON.parse(File.read(file), symbolize_names: true)
 
     json[:profiles][0][:complex_modifications][:rules].replace(generate)
@@ -173,12 +181,17 @@ module KaRulesDSL # rubocop:disable Metrics/ModuleLength
 
   private
 
+  def default_karabiner_path
+    config_home = ENV.fetch("XDG_CONFIG_HOME", File.expand_path("~/.config"))
+    File.join(config_home, "karabiner", "karabiner.json")
+  end
+
   def deep_sort(obj)
     case obj
     when Array
       obj.map { |el| deep_sort(el) }
     when Hash
-      obj.sort_by { |k, _| k }.to_h { |k, v| [k, deep_sort(v)] } # rubocop:disable Style/HashTransformValues
+      obj.sort_by { |k, _| k }.to_h.transform_values { |v| deep_sort(v) }
     else
       obj
     end

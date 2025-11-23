@@ -1,5 +1,6 @@
 *.gem
 *.rbc
+/karules-*.gem
 /.config
 /coverage/
 /InstalledFiles
